@@ -1,0 +1,259 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TORNADO SIMULATOR</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #101827;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  overflow: hidden;
+}
+
+h1 { margin: 10px; color: #65e8ff; }
+
+#info {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 10px;
+  font-size: 18px;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  max-width: 900px;
+  height: 65vh;
+  margin: auto;
+  background: #82c9e8;
+  border: 3px solid #263b50;
+  border-radius: 12px;
+  touch-action: none;
+}
+
+button {
+  padding: 12px 25px;
+  margin: 8px;
+  background: #00b9e8;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+#controls {
+  margin-top: 5px;
+}
+
+#message {
+  font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🌪️ TORNADO SIMULATOR</h1>
+
+<div id="info">
+  <span>🌪️ Размер: <b id="size">1</b></span>
+  <span>⭐ Счёт: <b id="score">0</b></span>
+  <span>🏆 Уровень: <b id="level">1</b></span>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="message">Поглощай объекты и становись сильнее!</div>
+
+<div id="controls">
+  <button id="up">⬆️</button>
+  <button id="left">⬅️</button>
+  <button id="down">⬇️</button>
+  <button id="right">➡️</button>
+  <button onclick="restart()">🔄 Заново</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let tornado, objects, score, level, gameOver;
+let keys = {};
+
+function resize() {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+}
+
+window.addEventListener("resize", resize);
+resize();
+
+function restart() {
+  tornado = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    size: 18,
+    speed: 3
+  };
+
+  score = 0;
+  level = 1;
+  gameOver = false;
+  objects = [];
+
+  for (let i = 0; i < 35; i++) {
+    spawn();
+  }
+
+  document.getElementById("message").textContent =
+    "Поглощай объекты и становись сильнее!";
+}
+
+function spawn() {
+  objects.push({
+    x: Math.random() * (canvas.width - 40) + 20,
+    y: Math.random() * (canvas.height - 40) + 20,
+    size: Math.random() * 10 + 8,
+    type: Math.floor(Math.random() * 4)
+  });
+}
+
+const colors = ["#267a36", "#777777", "#e7c44b", "#8b4513"];
+const emojis = ["🌳", "🏠", "🚗", "🌲"];
+
+function drawObject(obj) {
+  ctx.font = obj.size * 2 + "px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emojis[obj.type], obj.x, obj.y);
+}
+
+function update() {
+  if (gameOver) return;
+
+  let speed = tornado.speed;
+
+  if (keys["ArrowUp"] || keys["w"]) tornado.y -= speed;
+  if (keys["ArrowDown"] || keys["s"]) tornado.y += speed;
+  if (keys["ArrowLeft"] || keys["a"]) tornado.x -= speed;
+  if (keys["ArrowRight"] || keys["d"]) tornado.x += speed;
+
+  tornado.x = Math.max(20, Math.min(canvas.width - 20, tornado.x));
+  tornado.y = Math.max(20, Math.min(canvas.height - 20, tornado.y));
+
+  objects.forEach((obj, i) => {
+    let dx = tornado.x - obj.x;
+    let dy = tornado.y - obj.y;
+    let distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < tornado.size + obj.size + 10) {
+      score += 10;
+      tornado.size += 1;
+      objects.splice(i, 1);
+      spawn();
+
+      if (score % 100 === 0) {
+        level++;
+        tornado.speed += 0.2;
+      }
+    }
+  });
+
+  document.getElementById("size").textContent =
+    Math.floor(tornado.size);
+  document.getElementById("score").textContent = score;
+  document.getElementById("level").textContent = level;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Город
+  ctx.fillStyle = "#86c96b";
+  ctx.fillRect(0, canvas.height * 0.7,
+               canvas.width, canvas.height * 0.3);
+
+  // Дорога
+  ctx.fillStyle = "#555";
+  ctx.fillRect(0, canvas.height * 0.45,
+               canvas.width, 45);
+
+  ctx.strokeStyle = "white";
+  ctx.setLineDash([20, 20]);
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height * 0.475);
+  ctx.lineTo(canvas.width, canvas.height * 0.475);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  objects.forEach(drawObject);
+
+  // Торнадо
+  ctx.save();
+  ctx.translate(tornado.x, tornado.y);
+
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.ellipse(
+      0, i * 5 - 10,
+      tornado.size * (1 - i * 0.12),
+      tornado.size * 0.35,
+      0, 0, Math.PI * 2
+    );
+
+    ctx.fillStyle = `rgba(50,50,60,${0.7 - i * 0.1})`;
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown", e => {
+  keys[e.key] = true;
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.key] = false;
+});
+
+// Управление кнопками для телефона
+function holdButton(id, key) {
+  const btn = document.getElementById(id);
+
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    keys[key] = true;
+  });
+
+  btn.addEventListener("pointerup", () => keys[key] = false);
+  btn.addEventListener("pointerleave", () => keys[key] = false);
+  btn.addEventListener("pointercancel", () => keys[key] = false);
+}
+
+holdButton("up", "ArrowUp");
+holdButton("down", "ArrowDown");
+holdButton("left", "ArrowLeft");
+holdButton("right", "ArrowRight");
+
+restart();
+loop();
+</script>
+
+</body>
+</html>
